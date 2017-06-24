@@ -1,0 +1,157 @@
+PROGRAM := ( DECLARATION | META_INSTRUCTION )*
+
+META_INSTRUCTION := '#' MINST
+
+MINST := M_LOAD | M_RUN
+
+M_LOAD := 'load' ID  /* load a file and add its contents to the global scope */
+
+M_RUN := 'run' ID /* run a function: Compile time execution */
+
+DECLARATION := FUNC_DECLARATION | VAR_DECLARATION | TYPE_DECLARATION
+
+FUNC_DECLARATION := 'fn' ID '::' FUNCTION ';'
+                  | 'extern' 'fn' ID '::' FUNC_TYPE ';'
+
+FUNCTION := '(' FUNC_PARAMS ')' '->' ( 'void' | ( TYPE (',' TYPE)* ) ) BLOCK
+          | '(' FUNC_PARAMS ')' '=>' EXPR
+
+FUNC_PARAMS := [ ID ':' TYPE ( ',' ID ':' TYPE )* ] [ '...' ]
+
+VAR_DECLARATION := 'let' ID ':' TYPE ';'
+                 | 'let' ID ':' TYPE '=' EXPR ';'
+                 | 'let' ID ':' 'auto' '=' EXPR ';'
+                 | 'let' ID ':=' EXPR ';'
+
+TYPE_DECLARATION := 'type' ID '=' [ ANNOTATION ] TYPE ';'
+                  | 'type' ID ';'
+
+ANNOTATION := '#' ID
+
+BLOCK := [ CAPTURE ] '{' ( DECLARATION | STATEMENT )* '}'
+
+CAPTURE := '[' ( ID (',' ID )* )* ']'
+
+STATEMENT := IF_STMT
+           | FOR_STMT
+           | WHILE_STMT
+           | DO_STMT
+           | SWITCH_STMT
+           | EXPR ';'
+           | 'defer' STATEMENT
+           | 'return' EXPR ';'
+
+IF_STMT := 'if' EXPR BLOCK [ ELSE_IF_STMT* ] [ ELSE_STMT ]
+
+ELSE_IF_STMT := 'else if' EXPR BLOCK
+
+ELSE_STMT := 'else' BLOCK
+
+FOR_STMT := 'for' ( VAR_DECLARATION | ASSIGN ) ';' EXPR ';' EXPR BLOCK
+          | 'for' ( VAR_DECLARATION | ASSIGN ) BLOCK
+
+WHILE_STMT := 'while' EXPR BLOCK
+
+DO_STMT := 'do' BLOCK 'while' EXPR ';'
+
+SWITCH_STMT := 'switch' EXPR '{' CASE_STMT* [ 'default' ':' BLOCK ] '}'
+
+CASE_STMT := 'case' CONST_EXPR ':' BLOCK
+
+EXPR := CONST_EXPR
+      | '(' EXPR ')'
+      | CAST
+      | EXPR '(' EXPR ( ',' EXPR )* ')' /* Call */
+      | FUNCTION
+      | ASSIGN
+      | ARRAY_ACCESS
+      | EXPR '+' EXPR
+      | EXPR '-' EXPR
+      | EXPR '*' EXPR
+      | EXPR '/' EXPR
+      | EXPR '&' EXPR     /* Bitwise AND */
+      | EXPR '|' EXPR     /* Bitwise OR */
+      | EXPR '^' EXPR     /* Bitwise XOR */
+      | EXPR '<<' EXPR    /* Shift left */
+      | EXPR '>>' EXPR    /* Shift right */
+      | EXPR '&&' EXPR    /* Logical AND */
+      | EXPR '||' EXPR    /* Logical OR */
+      | EXPR '==' EXPR
+      | EXPR '!=' EXPR
+      | EXPR '<=' EXPR
+      | EXPR '>=' EXPR
+      | EXPR '<' EXPR
+      | EXPR '>' EXPR
+      | '~' EXPR          /* Bitwise NOT */
+      | '!' EXPR          /* Logical NOT */
+      | '++' EXPR
+      | '--' EXPR
+      | '&' EXPR          /* Address-of */
+      | EXPR '++'
+      | EXPR '--'
+
+ASSIGN := EXPR '=' EXPR
+
+CAST := 'cast' '<' TYPE '>' '(' EXPR ')'
+
+ARRAY_ACCESS := EXPR '[' EXPR ']'
+
+CONST_EXPR := CONSTANT
+            | '(' CONST_EXPR ')'
+            | CONST_CAST
+            | CONST_EXPR '+' CONST_EXPR
+            | CONST_EXPR '-' CONST_EXPR
+            | CONST_EXPR '*' CONST_EXPR
+            | CONST_EXPR '/' CONST_EXPR
+            | CONST_EXPR '&' CONST_EXPR     /* Bitwise AND */
+            | CONST_EXPR '|' CONST_EXPR     /* Bitwise OR */
+            | CONST_EXPR '^' CONST_EXPR     /* Bitwise XOR */
+            | CONST_EXPR '<<' CONST_EXPR    /* Shift left */
+            | CONST_EXPR '>>' CONST_EXPR    /* Shift right */
+            | CONST_EXPR '&&' CONST_EXPR    /* Logical AND */
+            | CONST_EXPR '||' CONST_EXPR    /* Logical OR */
+            | CONST_EXPR '==' CONST_EXPR
+            | CONST_EXPR '!=' CONST_EXPR
+            | CONST_EXPR '<=' CONST_EXPR
+            | CONST_EXPR '>=' CONST_EXPR
+            | CONST_EXPR '<' CONST_EXPR
+            | CONST_EXPR '>' CONST_EXPR
+            | '~' CONST_EXPR                /* Bitwise NOT */
+            | '!' CONST_EXPR                /* Logical NOT */
+
+CONSTANT := CONST_INT
+          | CONST_UINT
+          | CONST_FLOAT
+          | CONST_CHAR
+          | CONST_BOOL
+
+CONST_CAST := 'cast' '<' TYPE '>' '(' CONST_EXPR ')'
+
+TYPE := NATIVE_TYPE
+      | STRUCT_TYPE
+      | UNION_TYPE
+      | ENUM_TYPE
+      | FUNC_TYPE
+      | ARRAY_TYPE
+      | POINTER_TYPE
+      | ID
+
+NATIVE_TYPE := u8 | u16 | u32 | u64 | usize
+             | i8 | i16 | i32 | i64 | size
+             | f32 | f64
+             | char | wchar
+             | bool
+
+STRUCT_TYPE := 'struct' '{' ( ID ':' TYPE ',' )* '}'
+
+UNION_TYPE := 'struct' '{' ( ID ':' TYPE ',' )* '}'
+
+ENUM_TYPE := 'enum' '{ ( ID ',' )* '}'
+
+FUNC_TYPE := '(' [ TYPE ( ',' TYPE )* ] ')' '->' TYPE ( ',' TYPE )*
+
+ARRAY_TYPE := '[]' TYPE
+
+POINTER_TYPE := '*' TYPE
+
+
