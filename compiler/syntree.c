@@ -26,11 +26,11 @@ void release_syntree(syntree_t* tree) {
 synentry_t* syntree_get_entry(syntree_t* tree, ast_id id) {
     assert(id <= tree->num_entries);
     assert(id != 0);
-    return tree->entries[id - 1];
+    return &tree->entries[id - 1];
 }
 
 void syntree_traverse(syntree_t* tree, ast_id root, syntree_traverse_fnc fnc) {
-    synentry_t* current = syntree_get_entry(root);
+    synentry_t* current = syntree_get_entry(tree, root);
     if (!current)
         return;
     int visit_children = fnc(current);
