@@ -703,6 +703,8 @@ token_t lexer_get_next(lexer_t* lexer) {
             token.tag = TOKEN_T_KW_SWITCH;
         } else if (strcmp(buffer, "case") == 0) {
             token.tag = TOKEN_T_KW_CASE;
+        } else if (strcmp(buffer, "default") == 0) {
+            token.tag = TOKEN_T_KW_DEFAULT;
         } else if (strcmp(buffer, "return") == 0) {
             token.tag = TOKEN_T_KW_RETURN;
         } else {

@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "fly.h"
 #include <stdio.h>
 #include <assert.h>
 
@@ -14,9 +15,32 @@
  *
  * Functions were there are only a few places at
  * which we parse them - especially when we checked
- * anyways ot decice which rule applies - just do
+ * anyways to decice which rule applies - just do
+ *
  * an assertion
  */
+
+internal void print_line_marker(const char* file,
+        int line, int start_column, int end_column) {
+    FILE* f = fopen(file, "r");
+    if (!f)
+         return;
+    for (int i = 1; i < line; i++) {
+        while (fgetc(f) != '\n') {} // skip to next line
+    }
+    char c;
+    while ((c = (char)fgetc(f)) != '\n') {
+        printf("%c", c);
+    }
+    printf("\n");
+    for (int i = 1; i < start_column; i++)
+    printf(" ");
+    for (int i = start_column; i < end_column; i++)
+        printf("^");
+    fclose(f);
+    printf("\n");
+
+}
 
 void syntax_error(parser_t* parser, const char* expected) {
     printf("Syntax error. Expected %s at: %s %d:%d\n",
@@ -28,27 +52,7 @@ void syntax_error(parser_t* parser, const char* expected) {
 
     if ((parser->next.loc.start_line == parser->next.loc.end_line) &&
             (parser->next.loc.start_column <= parser->next.loc.end_column)) {
-        FILE* f = fopen(parser->next.loc.file, "r");
-        if (!f)
-            return;
-        int line = parser->next.loc.start_line;
-        for (int i = 1; i < line; i++) {
-            while (fgetc(f) != '\n') {} // skip to next line
-        }
-        char c;
-        while ((c = (char)fgetc(f)) != '\n') {
-            printf("%c", c);
-        }
-        printf("\n");
-        for (int i = 1; i < parser->next.loc.start_column; i++)
-            printf(" ");
-        for (int i = parser->next.loc.start_column;
-                i < parser->next.loc.end_column;
-                i++)
-            printf("^");
-        fclose(f);
-        printf("\n");
-    }
+            }
 }
 
 void print_indent(parser_t* parser) {
@@ -86,7 +90,7 @@ ast_id parse_program(parser_t* parser) {
             parse_meta_instruction(parser);
     } while (parser->next.tag != TOKEN_T_EOF);
 
-    return AST_INVALID_ID;
+    return 1; 
 }
 
 
@@ -99,7 +103,7 @@ ast_id parse_id(parser_t* parser) {
     printf("%s\n", parser->next.value.string);
     next_token(parser);
 
-    return AST_INVALID_ID;
+    return 1; 
 }
 
 ast_id parse_meta_instruction(parser_t* parser) {
@@ -115,7 +119,7 @@ ast_id parse_meta_instruction(parser_t* parser) {
     parse_id(parser);
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1; 
 }
 
 ast_id parse_declaration(parser_t* parser) {
@@ -141,7 +145,7 @@ ast_id parse_declaration(parser_t* parser) {
         return AST_INVALID_ID;
     }
     next_token(parser);
-    return AST_INVALID_ID;
+    return 1; 
 }
 
 ast_id parse_func_declaration(parser_t* parser) {
@@ -164,7 +168,7 @@ ast_id parse_func_declaration(parser_t* parser) {
 
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_extern_func_declaration(parser_t* parser) {
@@ -189,7 +193,7 @@ ast_id parse_extern_func_declaration(parser_t* parser) {
 
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_variable_declaration(parser_t* parser) {
@@ -219,13 +223,14 @@ ast_id parse_variable_declaration(parser_t* parser) {
         case TOKEN_T_DECL_ASSIGN:
             next_token(parser);
             parse_expr(parser);
+            break;
         default:
             syntax_error(parser, "':' or ':='");
             return AST_INVALID_ID;
     }
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_type_declaration(parser_t* parser) {
@@ -250,7 +255,7 @@ ast_id parse_type_declaration(parser_t* parser) {
     parse_type(parser);
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_function(parser_t* parser) {
@@ -288,8 +293,7 @@ ast_id parse_function(parser_t* parser) {
             syntax_error(parser, "'->' or '=>'");
             return AST_INVALID_ID;
     }
-
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_func_params(parser_t* parser) {
@@ -322,7 +326,7 @@ ast_id parse_func_params(parser_t* parser) {
     }
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_annotation(parser_t* parser) {
@@ -333,7 +337,7 @@ ast_id parse_annotation(parser_t* parser) {
     parser->debug_indent += 4;
     parse_id(parser);
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_block(parser_t* parser) {
@@ -371,7 +375,7 @@ ast_id parse_block(parser_t* parser) {
     parser->debug_indent -= 4;
     next_token(parser);
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_capture(parser_t* parser) {
@@ -393,7 +397,7 @@ ast_id parse_capture(parser_t* parser) {
 
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_statement(parser_t* parser) {
@@ -416,18 +420,37 @@ ast_id parse_statement(parser_t* parser) {
             printf("defer\n");
             parse_statement(parser);
             break;
+        case TOKEN_T_KW_SWITCH:
+            parse_switch_stmt(parser);
+            break;
         case TOKEN_T_KW_RETURN:
             next_token(parser);
+            print_indent(parser);
             printf("return\n");
+            parser->debug_indent += 4;
             parse_expr(parser);
+            parser->debug_indent -= 4;
             if (parser->next.tag != ';') {
                 syntax_error(parser, ";");
                 return AST_INVALID_ID;
             }
             next_token(parser);
             break;
+    	case ';':
+	    printf("Warning: Stray ';' at %s %d:%d\n",
+                    parser->next.loc.file,
+                    parser->next.loc.start_line,
+                    parser->next.loc.start_column);
+            if (parser->next.loc.start_line == parser->next.loc.end_line) {
+                print_line_marker(parser->next.loc.file,
+                        parser->next.loc.start_line,
+                        parser->next.loc.start_column,
+                        parser->next.loc.end_column);
+            }
+            next_token(parser);
+            break;
         default:
-            parse_expr(parser);
+            parse_assign(parser);
             if (parser->next.tag != ';') {
                 syntax_error(parser, ";");
                 return AST_INVALID_ID;
@@ -436,7 +459,7 @@ ast_id parse_statement(parser_t* parser) {
             break;
     }
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_if_stmt(parser_t* parser) {
@@ -452,7 +475,8 @@ ast_id parse_if_stmt(parser_t* parser) {
     while (parser->next.tag == TOKEN_T_KW_ELSE) {
         next_token(parser);
         if (parser->next.tag == TOKEN_T_KW_IF) {
-            next_token(parser);
+			next_token(parser);
+			parse_expr(parser);
             parse_block(parser);
         } else if (parser->next.tag == '{' ||
                 parser->next.tag == '[') {
@@ -464,7 +488,7 @@ ast_id parse_if_stmt(parser_t* parser) {
     }
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_for_stmt(parser_t* parser) {
@@ -490,6 +514,7 @@ ast_id parse_for_stmt(parser_t* parser) {
         return AST_INVALID_ID;
 
     if (parser->next.tag == ';') {
+        next_token(parser);
         ast_id cond = parse_expr(parser);
         if (!cond)
             return AST_INVALID_ID;
@@ -505,7 +530,7 @@ ast_id parse_for_stmt(parser_t* parser) {
 
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_while_stmt(parser_t* parser) {
@@ -522,7 +547,7 @@ ast_id parse_while_stmt(parser_t* parser) {
 
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_do_while_stmt(parser_t* parser) {
@@ -540,6 +565,7 @@ ast_id parse_do_while_stmt(parser_t* parser) {
         syntax_error(parser, "while");
         return AST_INVALID_ID;
     }
+    next_token(parser);
 
     parse_expr(parser);
 
@@ -551,7 +577,7 @@ ast_id parse_do_while_stmt(parser_t* parser) {
 
     parser->debug_indent -= 4;
 
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_switch_stmt(parser_t* parser) {
@@ -577,6 +603,11 @@ ast_id parse_switch_stmt(parser_t* parser) {
         parser->debug_indent += 4;
 
         parse_const_expr(parser);
+        if (parser->next.tag != ':') {
+			syntax_error(parser, ":");
+            return AST_INVALID_ID;
+        }
+        next_token(parser);
         parse_block(parser);
 
         parser->debug_indent -= 4;
@@ -586,6 +617,11 @@ ast_id parse_switch_stmt(parser_t* parser) {
         next_token(parser);
         print_indent(parser);
         printf("default\n");
+        if (parser->next.tag != ':') {
+            syntax_error(parser, ":");
+            return AST_INVALID_ID;
+        }
+        next_token(parser);
         parser->debug_indent += 4;
         parse_block(parser);
         parser->debug_indent -= 4;
@@ -598,7 +634,7 @@ ast_id parse_switch_stmt(parser_t* parser) {
     next_token(parser);
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_type(parser_t* parser) {
@@ -619,12 +655,12 @@ ast_id parse_type(parser_t* parser) {
             print_indent(parser);
             printf("some type\n");
             next_token(parser);
-            break;
+            return 1;
         default:
             syntax_error(parser, "type");
             return AST_INVALID_ID;
     }
-    return AST_INVALID_ID;
+    assert(!"Unreachable code reached");
 }
 
 ast_id parse_native_type(parser_t* parser);
@@ -661,7 +697,7 @@ ast_id parse_struct_type(parser_t* parser) {
     }
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_union_type(parser_t* parser) {
@@ -696,7 +732,7 @@ ast_id parse_union_type(parser_t* parser) {
     }
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_enum_type(parser_t* parser) {
@@ -724,7 +760,7 @@ ast_id parse_enum_type(parser_t* parser) {
     }
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_func_type(parser_t* parser) {
@@ -771,7 +807,7 @@ ast_id parse_func_type(parser_t* parser) {
         parse_type(parser);
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_array_type(parser_t* parser) {
@@ -793,7 +829,7 @@ ast_id parse_array_type(parser_t* parser) {
     parse_type(parser);
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_pointer_type(parser_t* parser) {
@@ -808,5 +844,5 @@ ast_id parse_pointer_type(parser_t* parser) {
     parse_type(parser);
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }

@@ -1,7 +1,18 @@
 #load basic
 
 fn main :: ( argc : i32, argv : []string ) -> i32 {
-    for let i := 0; i < argc; i++ {
-        basic.print(argv[i]);
-    }
+    let a := 100;
+    let b := a;
+
+    switch a {
+        case 100: {
+            basic.print("100");
+        }
+        case 200: {
+            basic.print("200");
+        }
+        default: {
+            basic.print("Something else!\n");
+        }
+    };
 };

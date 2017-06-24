@@ -272,10 +272,16 @@ internal ast_id parse_infix_operator(parser_t* parser) {
 internal ast_id parse_const_simple_operand(parser_t* parser);
 
 internal ast_id parse_simple_operand(parser_t* parser) {
-    /* simple operands are either constants or ids */
+    /* simple operands are either constants or identifier (which are ids or .) */
     if (parser->next.tag == TOKEN_T_ID) {
         parse_id(parser);
-        return 132;
+        while (parser->next.tag == '.') {
+            next_token(parser);
+            print_indent(parser);
+            printf(".\n");
+            parse_id(parser);
+        }
+        return 1;
     } else
         return parse_const_simple_operand(parser);
 
@@ -299,6 +305,29 @@ internal ast_id parse_prefix_expr(parser_t* parser) {
 
 #define UNUSED(x)((void)x)
 
+internal ast_id parse_call_operator(parser_t* parser) {
+    assert(parser->next.tag == '(');
+    next_token(parser);
+    
+    print_indent(parser);
+    printf("call\n");
+    parser->debug_indent += 4;
+
+    while (parser->next.tag != ')') {
+        parse_expr(parser);
+        if (parser->next.tag != ',' && parser->next.tag != ')') {
+            syntax_error(parser, "',' or ')'");
+            return AST_INVALID_ID;
+        }
+        if (parser->next.tag == ',')
+            next_token(parser);
+    }
+    next_token(parser);
+    parser->debug_indent -= 4;
+    
+    return 1;
+}
+
 internal ast_id parse_infix_expr(parser_t* parser) {
     operand_stack_t operand_stack = operand_stack_init();
     operator_stack_t operator_stack = operator_stack_init();
@@ -315,7 +344,7 @@ internal ast_id parse_infix_expr(parser_t* parser) {
         }
         if (parser->next.tag == '(') {
             /* call operator */
-            next_token(parser);
+            parse_call_operator(parser);
         }
         if (parser->next.tag == '[') {
             /* array access operator */
@@ -333,14 +362,14 @@ internal ast_id parse_infix_expr(parser_t* parser) {
                 parser->next.tag == TOKEN_T_DEC) {
             /* we have a postfix operator */
             next_token(parser);
-            printf("Postfix.\n");
         }
 
         operand_t op = { .ast = first_operand };
         operand_stack_push(&operand_stack, op);
     }
     if (!is_next_infix_op(parser)) {
-        return AST_INVALID_ID;
+        /* done. */
+        return 1;
     }
 
     while (true) {
@@ -377,6 +406,22 @@ internal ast_id parse_infix_expr(parser_t* parser) {
             return AST_INVALID_ID;
         }
 
+		if (parser->next.tag == '(') {
+			/* call operator */
+			parse_call_operator(parser);
+		}
+		if (parser->next.tag == '[') {
+			/* array access operator */
+			next_token(parser);
+			parser->debug_indent += 4;
+			parse_expr(parser);
+			parser->debug_indent -= 4;
+			if (parser->next.tag != ']') {
+				syntax_error(parser, "]");
+				return AST_INVALID_ID;
+			}
+			next_token(parser);
+		}
         if (parser->next.tag == TOKEN_T_INC ||
                 parser->next.tag == TOKEN_T_DEC) {
             /* postfix op */
@@ -515,7 +560,7 @@ ast_id parse_cast(parser_t* parser) {
     next_token(parser);
 
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 ast_id parse_assign(parser_t* parser) {
@@ -536,9 +581,11 @@ ast_id parse_assign(parser_t* parser) {
             parser->next.tag != TOKEN_T_SHIFT_RIGHT_ASSIGN) {
         return expr;
     }
+    print_indent(parser);
+    printf("assign\n");
     next_token(parser);
     parse_assign(parser);
-    return AST_INVALID_ID;
+    return 1;
 }
 
 /* Const expressions */
@@ -575,7 +622,7 @@ internal ast_id parse_const_prefix_expr(parser_t* parser) {
     print_indent(parser);
     parse_const_expr(parser);
     parser->debug_indent -= 4;
-    return AST_INVALID_ID;
+    return 1;
 }
 
 internal ast_id parse_const_infix_expr(parser_t* parser) {
@@ -593,10 +640,6 @@ internal ast_id parse_const_infix_expr(parser_t* parser) {
             first_operand = parse_const_simple_operand(parser);
         }
 
-        if (parser->next.tag == '(') {
-            /* call operator */
-            next_token(parser);
-        }
         if (parser->next.tag == TOKEN_T_INC ||
                 parser->next.tag == TOKEN_T_DEC) {
             /* we have a postfix operator */
@@ -607,7 +650,8 @@ internal ast_id parse_const_infix_expr(parser_t* parser) {
         operand_stack_push(&operand_stack, op);
     }
     if (!is_next_infix_op(parser)) {
-        return AST_INVALID_ID;
+        /* done */
+        return 1;
     }
 
     while (true) {

@@ -84,11 +84,11 @@ EXPR := CONST_EXPR
       | EXPR '>' EXPR
       | '~' EXPR          /* Bitwise NOT */
       | '!' EXPR          /* Logical NOT */
-      |Â '++' EXPR
-      |Â '--' EXPR
-     Â | '&' EXPR          /* Address-of */
+      | '++' EXPR
+      | '--' EXPR
+      | '&' EXPR          /* Address-of */
       | EXPR '++'
-      |Â EXPR '--'
+      | EXPR '--'
 
 ASSIGN := EXPR '=' EXPR
 
