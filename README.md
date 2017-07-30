@@ -1,10 +1,12 @@
-== The fly programming language ==
+## The fly programming language
 
-=== Building on Unix (macOS, linux) ===
+This is a small C-like programming language, meant to "replace" C.
+
+### Building on Unix (macOS, linux)
 
 Simply execute `build.sh`.
 
-=== Building on Windows ===
+### Building on Windows
 
 You need Visual Studio installed (tested with VS Community 2015).
 If necessary, change the path to vcvarsall.bat inside `shell.bat` and remove the line including
