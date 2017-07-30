@@ -24,7 +24,7 @@ internal void print_line_marker(const char* file,
         int line, int start_column, int end_column) {
     FILE* f = fopen(file, "r");
     if (!f)
-         return;
+        return;
     for (int i = 1; i < line; i++) {
         while (fgetc(f) != '\n') {} // skip to next line
     }
@@ -34,12 +34,11 @@ internal void print_line_marker(const char* file,
     }
     printf("\n");
     for (int i = 1; i < start_column; i++)
-    printf(" ");
+        printf(" ");
     for (int i = start_column; i < end_column; i++)
         printf("^");
     fclose(f);
     printf("\n");
-
 }
 
 void syntax_error(parser_t* parser, const char* expected) {
@@ -52,7 +51,7 @@ void syntax_error(parser_t* parser, const char* expected) {
 
     if ((parser->next.loc.start_line == parser->next.loc.end_line) &&
             (parser->next.loc.start_column <= parser->next.loc.end_column)) {
-            }
+    }
 }
 
 void print_indent(parser_t* parser) {
@@ -67,6 +66,8 @@ void next_token(parser_t* parser) {
 int init_parser(parser_t* parser, char* file) {
     if (!lexer_init(&parser->lexer, file))
         return 0;
+    if (!init_syntree(&parser->syntree))
+        return 0;
     next_token(parser);
     parser->debug_indent = 0;
     return 1;
@@ -74,23 +75,29 @@ int init_parser(parser_t* parser, char* file) {
 
 void release_parser(parser_t* parser) {
     lexer_release(&parser->lexer);
+    release_syntree(&parser->syntree);
 }
 
 ast_id parse_program(parser_t* parser) {
+    ast_id program = syntree_add_list(&parser->syntree, AST_PROGRAM, 0);
     do {
         parser->debug_indent = 4;
+        ast_id elem = 0;
         if (parser->next.tag == TOKEN_T_KW_LET ||
                 parser->next.tag == TOKEN_T_KW_TYPE ||
                 parser->next.tag == TOKEN_T_KW_FUNC ||
                 parser->next.tag == TOKEN_T_KW_EXTERN)
-            parse_declaration(parser);
-
-        parser->debug_indent = 4;
-        if (parser->next.tag == '#')
+            elem = parse_declaration(parser);
+        else if (parser->next.tag == '#')
             parse_meta_instruction(parser);
+        else
+            syntax_error(parser, "Declaration or meta instruction");
+
+        if (elem)
+            syntree_append_list(&parser->syntree, program, elem);
     } while (parser->next.tag != TOKEN_T_EOF);
 
-    return 1; 
+    return program;
 }
 
 
@@ -101,9 +108,10 @@ ast_id parse_id(parser_t* parser) {
     }
     print_indent(parser);
     printf("%s\n", parser->next.value.string);
+    ast_id id = syntree_add_id(&parser->syntree, parser->next.value.string);
     next_token(parser);
 
-    return 1; 
+    return id; 
 }
 
 ast_id parse_meta_instruction(parser_t* parser) {
@@ -123,18 +131,19 @@ ast_id parse_meta_instruction(parser_t* parser) {
 }
 
 ast_id parse_declaration(parser_t* parser) {
+    ast_id decl;
     switch (parser->next.tag) {
         case TOKEN_T_KW_LET:
-            parse_variable_declaration(parser);
+            decl = parse_variable_declaration(parser);
             break;
         case TOKEN_T_KW_TYPE:
-            parse_type_declaration(parser);
+            decl = parse_type_declaration(parser);
             break;
         case TOKEN_T_KW_FUNC:
-            parse_func_declaration(parser);
+            decl = parse_func_declaration(parser);
             break;
         case TOKEN_T_KW_EXTERN:
-            parse_extern_func_declaration(parser);
+            decl = parse_extern_func_declaration(parser);
             break;
         default:
             syntax_error(parser, "'let', 'type', 'fn' or 'extern'");
@@ -145,7 +154,7 @@ ast_id parse_declaration(parser_t* parser) {
         return AST_INVALID_ID;
     }
     next_token(parser);
-    return 1; 
+    return decl;
 }
 
 ast_id parse_func_declaration(parser_t* parser) {
@@ -156,7 +165,7 @@ ast_id parse_func_declaration(parser_t* parser) {
     printf("fn\n");
 
     parser->debug_indent += 4;
-    parse_id(parser);
+    ast_id id = parse_id(parser);
 
     if (parser->next.tag != TOKEN_T_FUNC_DECL) {
         syntax_error(parser, "'::'");
@@ -164,11 +173,12 @@ ast_id parse_func_declaration(parser_t* parser) {
     }
     next_token(parser);
 
-    parse_function(parser);
+    ast_id fnc = parse_function(parser);
 
     parser->debug_indent -= 4;
 
-    return 1;
+
+    return syntree_add_pair(&parser->syntree, AST_FUNC_DECL, id, fnc);
 }
 
 ast_id parse_extern_func_declaration(parser_t* parser) {
@@ -185,15 +195,15 @@ ast_id parse_extern_func_declaration(parser_t* parser) {
     printf("extern fn\n");
 
     parser->debug_indent += 4;
-    parse_id(parser);
+    ast_id id = parse_id(parser);
 
     next_token(parser);
 
-    parse_func_type(parser);
+    ast_id fn = parse_func_type(parser);
 
     parser->debug_indent -= 4;
 
-    return 1;
+    return syntree_add_pair(&parser->syntree, AST_EXT_FUNC_DECL, id, fn);
 }
 
 ast_id parse_variable_declaration(parser_t* parser) {
@@ -204,7 +214,8 @@ ast_id parse_variable_declaration(parser_t* parser) {
     printf("let\n");
 
     parser->debug_indent += 4;
-    parse_id(parser);
+    ast_id id = parse_id(parser);
+    ast_id type, value;
 
     switch (parser->next.tag) {
         case ':':
@@ -212,17 +223,20 @@ ast_id parse_variable_declaration(parser_t* parser) {
             if (parser->next.tag == TOKEN_T_KW_AUTO) {
                 print_indent(parser);
                 printf("auto\n");
-            } else {
-                parse_type(parser);
+                type = AST_INVALID_ID;
+            }
+            else {
+                type = parse_type(parser);
             }
             if (parser->next.tag == '=') {
                 next_token(parser);
-                parse_expr(parser);
+                value = parse_expr(parser);
             }
             break;
         case TOKEN_T_DECL_ASSIGN:
             next_token(parser);
-            parse_expr(parser);
+            type = AST_INVALID_ID;
+            value = parse_expr(parser);
             break;
         default:
             syntax_error(parser, "':' or ':='");
@@ -230,7 +244,8 @@ ast_id parse_variable_declaration(parser_t* parser) {
     }
 
     parser->debug_indent -= 4;
-    return 1;
+    return syntree_add_list(&parser->syntree, AST_VAR_DECL,
+                            3, id, type, value );
 }
 
 ast_id parse_type_declaration(parser_t* parser) {
@@ -241,7 +256,7 @@ ast_id parse_type_declaration(parser_t* parser) {
     printf("type\n");
 
     parser->debug_indent += 4;
-    parse_id(parser);
+    ast_id id = parse_id(parser);
 
     if (parser->next.tag != '=') {
         syntax_error(parser, "=");
@@ -252,10 +267,10 @@ ast_id parse_type_declaration(parser_t* parser) {
     if (parser->next.tag == '#') {
         parse_annotation(parser);
     }
-    parse_type(parser);
+    ast_id type = parse_type(parser);
 
     parser->debug_indent -= 4;
-    return 1;
+    return syntree_add_pair(&parser->syntree, AST_TYPE_DECL, id, type);
 }
 
 ast_id parse_function(parser_t* parser) {
@@ -270,30 +285,37 @@ ast_id parse_function(parser_t* parser) {
 
     parser->debug_indent += 4;
 
+    ast_id params = AST_INVALID_ID;
     if (parser->next.tag == TOKEN_T_ID ||
             parser->next.tag == TOKEN_T_ELLIPSIS) {
-        parse_func_params(parser);
+        params = parse_func_params(parser);
     }
 
+    ast_id ret_type, body;
     switch (parser->next.tag) {
         case TOKEN_T_ARROW:
             next_token(parser);
-            parse_type(parser);
+            ret_type = syntree_add_list(&parser->syntree, AST_RET_TYPE,
+                    1, parse_type(parser));
             while (parser->next.tag == ',') {
                 next_token(parser);
-                parse_type(parser);
+                ast_id tmp = parse_type(parser);
+                if (tmp)
+                    syntree_append_list(&parser->syntree, ret_type, tmp);
             }
-            parse_block(parser);
+            body = parse_block(parser);
             break;
         case TOKEN_T_BIG_ARROW:
+            ret_type = AST_INVALID_ID;
             next_token(parser);
-            parse_expr(parser);
+            body = parse_expr(parser);
             break;
         default:
             syntax_error(parser, "'->' or '=>'");
             return AST_INVALID_ID;
     }
-    return 1;
+    return syntree_add_list(&parser->syntree, AST_FUNCTION,
+            3, params, ret_type, body);
 }
 
 ast_id parse_func_params(parser_t* parser) {
@@ -305,28 +327,35 @@ ast_id parse_func_params(parser_t* parser) {
     print_indent(parser);
     printf("func params\n");
     parser->debug_indent += 4;
+    ast_id params = syntree_add_list(&parser->syntree, AST_FUNC_PARAMS, 0);
+                                    
     while (parser->next.tag == TOKEN_T_ID) {
-        parse_id(parser);
+        ast_id id = parse_id(parser);
         if (parser->next.tag != ':') {
             syntax_error(parser, ":");
             return AST_INVALID_ID;
         }
         next_token(parser);
-        parse_type(parser);
+        ast_id type = parse_type(parser);
         if (parser->next.tag != ',' &&
                 parser->next.tag != ')') {
             syntax_error(parser, "',', ')' or '...'");
             return AST_INVALID_ID;
         }
+        ast_id param = syntree_add_pair(&parser->syntree, AST_FUNC_PARAM,
+                                        id, type);
+        syntree_append_list(&parser->syntree, params, param);
         next_token(parser);
     }
     if (parser->next.tag == TOKEN_T_ELLIPSIS) {
         print_indent(parser);
         printf("...\n");
+        ast_id elp = syntree_add_ellipsis(&parser->syntree);
+        syntree_append_list(&parser->syntree, params, elp); 
     }
     parser->debug_indent -= 4;
 
-    return 1;
+    return params;
 }
 
 ast_id parse_annotation(parser_t* parser) {
@@ -335,9 +364,9 @@ ast_id parse_annotation(parser_t* parser) {
     print_indent(parser);
     printf("annotation\n");
     parser->debug_indent += 4;
-    parse_id(parser);
+    ast_id tag = parse_id(parser);
     parser->debug_indent -= 4;
-    return 1;
+    return syntree_add_tag(&parser->syntree, AST_ANNOTATION, tag);
 }
 
 ast_id parse_block(parser_t* parser) {
@@ -367,7 +396,8 @@ ast_id parse_block(parser_t* parser) {
                 parser->next.tag == TOKEN_T_KW_EXTERN ||
                 parser->next.tag == TOKEN_T_KW_TYPE) {
             parse_declaration(parser);
-        } else {
+        } 
+        else {
             parse_statement(parser);
         }
     }
@@ -436,8 +466,8 @@ ast_id parse_statement(parser_t* parser) {
             }
             next_token(parser);
             break;
-    	case ';':
-	    printf("Warning: Stray ';' at %s %d:%d\n",
+        case ';':
+            printf("Warning: Stray ';' at %s %d:%d\n",
                     parser->next.loc.file,
                     parser->next.loc.start_line,
                     parser->next.loc.start_column);
@@ -475,15 +505,16 @@ ast_id parse_if_stmt(parser_t* parser) {
     while (parser->next.tag == TOKEN_T_KW_ELSE) {
         next_token(parser);
         if (parser->next.tag == TOKEN_T_KW_IF) {
-			next_token(parser);
-			parse_expr(parser);
+            next_token(parser);
+            parse_expr(parser);
             parse_block(parser);
-        } else if (parser->next.tag == '{' ||
+        }
+        else if (parser->next.tag == '{' ||
                 parser->next.tag == '[') {
             parse_block(parser);
             break; /* we are done. any else that follows is
-                    either a syntax error, or an else beloging
-                    to an outer if statement */
+                      either a syntax error, or an else beloging
+                      to an outer if statement */
         }
     }
 
@@ -604,7 +635,7 @@ ast_id parse_switch_stmt(parser_t* parser) {
 
         parse_const_expr(parser);
         if (parser->next.tag != ':') {
-			syntax_error(parser, ":");
+            syntax_error(parser, ":");
             return AST_INVALID_ID;
         }
         next_token(parser);
@@ -783,7 +814,8 @@ ast_id parse_func_type(parser_t* parser) {
                 syntax_error(parser, ")");
                 return AST_INVALID_ID;
             }
-        } else {
+        } 
+        else {
             parse_type(parser);
             if (parser->next.tag != ',' &&
                     parser->next.tag != ')') {

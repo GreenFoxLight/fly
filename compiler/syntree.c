@@ -152,6 +152,13 @@ ast_id syntree_add_id(syntree_t* tree, const char* id) {
     return add_entry(tree, node);
 }
 
+ast_id syntree_add_ellipsis(syntree_t* tree) {
+    synentry_t node;
+    node.tag = AST_ELLIPSIS;
+    node.type = TYPE_LEAF;
+    return add_entry(tree, node);
+}
+
 ast_id syntree_add_operator(syntree_t* tree, token_tag_t op) {
     synentry_t node;
     node.tag = AST_OPERATOR;
@@ -198,4 +205,21 @@ ast_id syntree_add_list(syntree_t* tree, synentry_tag_t tag,
     }
     va_end(args);
     return add_entry(tree, node);
+}
+
+ast_id syntree_append_list(syntree_t* tree, ast_id _list, ast_id elem) {
+    synentry_t* list = syntree_get_entry(tree, _list);
+    if (!list)
+        return AST_INVALID_ID;
+    
+    size_t new_len = list->value.list.length + 1;
+    ast_id* new_list = realloc(list->value.list.list,
+                                sizeof(ast_id) * new_len);
+    if (!new_list)
+      return AST_INVALID_ID;
+
+    list->value.list.length = new_len;
+    list->value.list.list = new_list;
+    new_list[new_len - 1] = elem;
+    return _list;  
 }

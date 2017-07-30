@@ -48,6 +48,7 @@ typedef enum {
     AST_OPERATOR,
     /* special operators */
     AST_CALL,
+    AST_CALL_PARAM,
     AST_ARRAY_ACCESS,
     /* meta instructions */
     AST_META_LOAD,
@@ -57,12 +58,16 @@ typedef enum {
     AST_VAR_DECL,
     AST_FUNC_DECL,
     AST_TYPE_DECL,
+    AST_EXT_FUNC_DECL,
     /* blocks */
     AST_BLOCK,
     AST_CAPTURE,
     /* functions */
     AST_FUNCTION,
     AST_FUNC_PARAMS,
+    AST_FUNC_PARAM,
+    AST_RET_TYPE,
+    AST_ELLIPSIS,
     
     AST_PROGRAM,
 } synentry_tag_t;
@@ -122,12 +127,15 @@ ast_id syntree_add_char(syntree_t* tree, char c);
 ast_id syntree_add_string(syntree_t* tree, const char* s);
 ast_id syntree_add_id(syntree_t* tree, const char* id);
 ast_id syntree_add_operator(syntree_t* tree, token_tag_t op);
+ast_id syntree_add_ellipsis(syntree_t* tree);
 
 ast_id syntree_add_tag(syntree_t* tree, synentry_tag_t tag, ast_id contained);
 ast_id syntree_add_pair(syntree_t* tree, synentry_tag_t tag,
         ast_id first, ast_id second);
 ast_id syntree_add_list(syntree_t* tree, synentry_tag_t tag,
         size_t length, ...);
+ast_id syntree_append_list(syntree_t* tree, ast_id list, ast_id element);
+ast_id syntree_prepend_list(syntree_t* tree, ast_id list, ast_id element);
 
 typedef struct {
     location_t location;

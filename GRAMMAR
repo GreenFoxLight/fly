@@ -2,7 +2,7 @@ PROGRAM := ( DECLARATION | META_INSTRUCTION )*
 
 META_INSTRUCTION := '#' MINST
 
-MINST := M_LOAD |Â M_RUN
+MINST := M_LOAD | M_RUN
 
 M_LOAD := 'load' ID  /* load a file and add its contents to the global scope */
 
@@ -11,7 +11,7 @@ M_RUN := 'run' ID /* run a function: Compile time execution */
 DECLARATION := FUNC_DECLARATION |Â VAR_DECLARATION | TYPE_DECLARATION
 
 FUNC_DECLARATION := 'fn' ID '::' FUNCTION ';'
-                  |Â 'extern' 'fn' ID '::' FUNC_TYPE ';'
+                  | 'extern' 'fn' ID '::' FUNC_TYPE ';'
 
 FUNCTION := '(' FUNC_PARAMS ')' '->' ( 'void' | ( TYPE (',' TYPE)* ) ) BLOCK
           | '(' FUNC_PARAMS ')' '=>' EXPR
@@ -20,8 +20,8 @@ FUNC_PARAMS := [ ID ':' TYPE ( ',' ID ':' TYPE )* ] [ '...' ]
 
 VAR_DECLARATION := 'let' ID ':' TYPE ';'
                  | 'let' ID ':' TYPE '=' EXPR ';'
-                 |Â 'let' ID ':' 'auto' '=' EXPR ';'
-                 |Â 'let' ID ':=' EXPR ';'
+                 | 'let' ID ':' 'auto' '=' EXPR ';'
+                 | 'let' ID ':=' EXPR ';'
 
 TYPE_DECLARATION := 'type' ID '=' [ ANNOTATION ] TYPE ';'
                   | 'type' ID ';'
